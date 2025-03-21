@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int             @id @default(autoincrement()) @map("UserId")
+  firstName   String?
+  lastName    String?
+  dateOfBirth DateTime?
+  address     String?
+  email       String?         
+  password    String?
+  phoneNumber String?
+  role        String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime?       @updatedAt
+  userSkills  UserSkills[]
+  applications JobApplication[]
+  answers     UsersAnswers[]
+  cvUrl       String?
+  cvId        String?
+  lastUploadDate DateTime?
+}
+
+model Skills {
+  id          Int             @id @default(autoincrement()) @map("SkillId")
+  skillName   String
+  userSkills  UserSkills[]
+  offerSkills JobOfferSkills[]
+}
+
+model UserSkills {
+  id        Int     @id @default(autoincrement()) @map("UserSkillId")
+  userId    Int
+  skillId   Int
+  user      User    @relation(fields: [userId], references: [id])
+  skill     Skills  @relation(fields: [skillId], references: [id])
+}
+
+model JobOffer {
+  id             Int              @id @default(autoincrement()) @map("JobOfferId")
+  jobName        String
+  description    String
+  educationNeeded String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  offerSkills    JobOfferSkills[]
+  applications   JobApplication[]
+  tests          Tests[]          @relation()
+}
+
+model JobOfferSkills {
+  id         Int      @id @default(autoincrement()) @map("JobOfferSkillId")
+  jobOfferId Int
+  skillId    Int
+  jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+  skill      Skills   @relation(fields: [skillId], references: [id])
+}
+
+model JobApplication {
+  id         Int      @id @default(autoincrement()) @map("JobApplicationId")
+  userId     Int
+  jobOfferId Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+  jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+}
+
+model Tests {
+  id              Int         @id @default(autoincrement()) @map("TestId")
+  testTitle       String
+  testDescription String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  questions       Questions[] 
+  jobOfferId      Int
+  jobOffer        JobOffer    @relation(fields: [jobOfferId], references: [id], onDelete: Cascade)
+  UsersAnswers UsersAnswers[]
+  
+}
+
+model Questions {
+  id            Int       @id @default(autoincrement()) @map("QuestionId")
+  testId        Int
+  questionText  String
+  questionType  String
+  defaultGrade  Float
+  test          Tests     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers       Answers[]
+  
+}
+
+model Answers {
+  id             Int            @id @default(autoincrement()) @map("AnswerId")
+  questionId     Int
+  answerValue    String
+  answerIsCorrect Boolean
+  question       Questions      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  usersAnswers   UsersAnswers[]
+}
+
+
+model UsersAnswers {
+  id             Int        @id @default(autoincrement()) @map("UsersAnswerId")
+  userId         Int
+  answerId       Int
+  userQuestionId Int
+  testId         Int 
+  user           User       @relation(fields: [userId], references: [id])
+  answer         Answers    @relation(fields: [answerId], references: [id])
+  test           Tests      @relation(fields: [testId], references: [id], onDelete: Cascade)
+}
