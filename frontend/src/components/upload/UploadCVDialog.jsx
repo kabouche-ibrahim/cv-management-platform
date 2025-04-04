@@ -26,7 +26,7 @@ const UploadCVDialog = ({ open, handleClose, isHR, jobOfferId }) => {
           formData.append('files', file);
         });
         
-        // Fix: Use correct parameter name 'files' instead of 'file'
+        
         await axios.post(`http://localhost:8000/upload-resumes-hr/${jobOfferId}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -36,7 +36,11 @@ const UploadCVDialog = ({ open, handleClose, isHR, jobOfferId }) => {
         const formData = new FormData();
         formData.append('file', files[0]);
         
-        await axios.post('http://localhost:8000/upload-resume', formData, {
+        const url = jobOfferId 
+          ? `http://localhost:8000/upload-resume?job_offer_id=${jobOfferId}`
+          : 'http://localhost:8000/upload-resume';
+          
+        await axios.post(url, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           }

@@ -155,7 +155,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(file: UploadFile = File(...), job_offer_id: int = None):
     # Validate PDF file
     if not file.filename.lower().endswith(SUPORTED_FORMATS):
         raise HTTPException(400, "File must be a PDF or DOCX")
@@ -182,7 +182,7 @@ async def upload_resume(file: UploadFile = File(...)):
         resume_id = f"{year}-{unique_id}"
         resume_url = f"{SERVER_URL}/static/resumes/{year}-{unique_id}/{file.filename}"
 
-        insert_resumes_db(file_path, resume_id, resume_url )
+        insert_resumes_db(file_path, resume_id, resume_url, job_offer_id)
     except Exception as e:
         print(f"Error: {e}")
     
