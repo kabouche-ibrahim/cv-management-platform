@@ -21,6 +21,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const HRDashboard = () => {
   const [jobOffers, setJobOffers] = useState([]);
@@ -80,11 +82,17 @@ const HRDashboard = () => {
   };
 
   const handleDeleteJobOffer = async (id) => {
-    try {
-      await jobOfferService.deleteJobOffer(id);
-      loadJobOffers();
-    } catch (error) {
-      console.error('Error deleting job offer:', error);
+    if (window.confirm('Are you sure you want to delete this job offer? This action cannot be undone.')) {
+      try {
+        await jobOfferService.deleteJobOffer(id);
+        await loadJobOffers();
+        // Show success message
+        alert('Job offer deleted successfully');
+      } catch (error) {
+        console.error('Error deleting job offer:', error);
+        // Show error message to user
+        alert(error.response?.data?.message || 'Error deleting job offer. Please try again.');
+      }
     }
   };
 
@@ -159,7 +167,11 @@ const HRDashboard = () => {
                   }}
                 >
                   <TableCell>{offer.jobName}</TableCell>
-                  <TableCell>{offer.description}</TableCell>
+                  <TableCell>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {offer.description}
+                    </ReactMarkdown>
+                  </TableCell>
                   <TableCell>{offer.educationNeeded}</TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -175,14 +187,17 @@ const HRDashboard = () => {
                   </TableCell>
                   <TableCell align="right">
                     <IconButton 
-                      onClick={() => handleDeleteJobOffer(offer.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteJobOffer(offer.id)}}
                       color="error"
                     >
                       <DeleteIcon />
                     </IconButton>
                     <IconButton 
                         color="primary"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation(); 
                           setSelectedJobOffer(offer);
                           setOpenCreateDialog(true);
                         }}

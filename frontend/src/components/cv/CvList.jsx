@@ -25,6 +25,8 @@ import NavBar from '../navbar/NavBar';
 import { useParams } from 'react-router-dom';
 import UploadCVDialog from '../upload/UploadCVDialog';
 import { jobOfferService } from '../../services/jobOfferService';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const CvList = () => {
   const [cvs, setCvs] = useState([]);
@@ -37,10 +39,33 @@ const CvList = () => {
   const { offerId } = useParams();
   const [jobOffer, setJobOffer] = useState(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [scores, setScores] = useState({});
+
 
   useEffect(() => {
     loadData();
   }, [offerId]);
+
+  useEffect(() => {
+    const loadScores = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8000/recommendation/${offerId}`);
+        const scoreMap = {};
+        response.data.forEach(([cvId, scores]) => {
+          scoreMap[cvId] = scores;
+        });
+        setScores(scoreMap);
+      } catch (error) {
+        console.error('Error loading scores:', error);
+      }
+    };
+  
+    loadScores();
+  }, [offerId]);
+
+  const handleViewCV = (cvUrl) => {
+    window.open(cvUrl, '_blank');
+  };
 
   const loadData = async () => {
     try {
@@ -101,23 +126,30 @@ const CvList = () => {
     <>
       <NavBar />
       <Box sx={{ p: 4, mt: 8 }}>
-        {jobOffer ? (
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-              {jobOffer.jobName}
-            </Typography>
-            <Typography variant="body1" paragraph>
-              {jobOffer.description}
-            </Typography>
-            <Typography variant="subtitle1">
-              Required Education: {jobOffer.educationNeeded}
-            </Typography>
-          </Box>
-        ) : (
+      {jobOffer ? (
+        <Box sx={{ mb: 4 }}>
           <Typography variant="h4" gutterBottom>
-            CV List
+            {jobOffer.jobName}
           </Typography>
-        )}
+          <Box sx={{ 
+            border: '1px solid #eee', 
+            borderRadius: '4px', 
+            p: 2,
+            mb: 2 
+          }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {jobOffer.description || '*No description provided*'}
+            </ReactMarkdown>
+          </Box>
+          <Typography variant="subtitle1">
+            Required Education: {jobOffer.educationNeeded}
+          </Typography>
+        </Box>
+      ) : (
+        <Typography variant="h4" gutterBottom>
+          CV List
+        </Typography>
+      )}
 
         {offerId && (
           <Button
@@ -127,20 +159,22 @@ const CvList = () => {
           >
             Upload CVs
           </Button>
+          
         )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Full Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>CV ID</TableCell>
-                <TableCell>Job Offer</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Full Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>CV ID</TableCell>
+              <TableCell>Job Offer</TableCell>
+              <TableCell>Actions</TableCell>
+              <TableCell>Score</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
               {cvs.map((cv) => (
                 <TableRow key={cv.cvId}>
                   <TableCell>{cv.firstName || 'No Name'}</TableCell>
@@ -151,7 +185,14 @@ const CvList = () => {
                   </TableCell>
                   <TableCell>
                     <Button 
-                      variant="contained" 
+                      variant="outlined"
+                      onClick={() => handleViewCV(cv.cvUrl)}
+                      sx={{ mr: 1 }}
+                    >
+                      View CV
+                    </Button>
+                    <Button 
+                      variant="contained"
                       onClick={() => {
                         setCurrentCv(cv);
                         setOpen(true);
@@ -161,6 +202,12 @@ const CvList = () => {
                       Generate Test Link
                     </Button>
                   </TableCell>
+                  <TableCell>
+                    {scores[cv.cvId] ? 
+                      `${(scores[cv.cvId].combined * 100).toFixed(1)}%` : 
+                      'N/A'}
+                  </TableCell>
+        
                 </TableRow>
               ))}
             </TableBody>

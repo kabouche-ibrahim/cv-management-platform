@@ -23,9 +23,7 @@ const TakeTest = () => {
   const [answers, setAnswers] = useState({});
   const [sqlAnswers, setSqlAnswers] = useState({});
   const [textAnswers, setTextAnswers] = useState({});
-  const [cvUserId, setCvUserId] = useState(null);
   const [userId, setUserId] = useState(null);
-
 
   useEffect(() => {
     loadTest();
@@ -33,20 +31,23 @@ const TakeTest = () => {
 
   const loadTest = async () => {
     try {
-      console.log('Full UUID:', uuid); // Debugging UUID extraction
-
-        // Extract cvId from UUID
-        const parts = uuid.split('-');
-        const cvId = parts.slice(2).join('-');  
-
-        console.log('Extracted cvId:', cvId); // Debugging cvId extraction
-      // Get test using the entire uuid as testLink
-      const data = await testService.getTestByLink(uuid);
-      setTest(data);
-      
       // Extract cvId from UUID
-     
-      console.log('Extracted cvId:', cvId);
+      const parts = uuid.split('-');
+      const cvId = parts.slice(2).join('-');  
+      
+      const data = await testService.getTestByLink(uuid);
+      console.log('Received test data with answers:', {
+        questions: data.questions.map(q => ({
+          id: q.id,
+          questionText: q.questionText,
+          answers: q.answers.map(a => ({
+            id: a.id,
+            value: a.answerValue,
+            isCorrect: a.answerIsCorrect
+          }))
+        }))
+      });
+      setTest(data);
       
       if (cvId) {
         try {
@@ -68,54 +69,178 @@ const TakeTest = () => {
     } finally {
       setLoading(false);
     }
-};
+  };
 
+  const calculateGrade = () => {
+    let totalScore = 0;
+    let maxPossibleScore = 0;
   
+    test.questions.forEach((question) => {
+      const grade = question.defaultGrade || 1; 
+      maxPossibleScore += grade;
+  
+      // Get all correct answers for this question
+      const correctAnswers = question.answers.filter(a => a.answerIsCorrect);
+      
+      
+      console.log(`Question ${question.id} (${question.questionType})`);
+      console.log('All answers:', question.answers);
+      console.log('Correct answers:', correctAnswers);
+  
+      switch (question.questionType) {
+        case 'mcq':
+          const selectedAnswerId = parseInt(answers[question.id]);
+          console.log('User selected answer ID:', selectedAnswerId);
+          
+          // Check if selected answer is among correct answers
+          if (correctAnswers.some(a => a.id === selectedAnswerId)) {
+            console.log('Correct MCQ answer! Adding', grade, 'points');
+            totalScore += grade;
+          }
+          break;
+  
+        case 'boolean':
+          const userBoolAnswer = answers[question.id]; // 'true' or 'false'
+          console.log('User selected boolean:', userBoolAnswer);
+          
+          // Find the correct boolean answer in all answers
+          const correctAnswer = question.answers.find(a => a.answerIsCorrect);
+          console.log('Correct boolean answer value:', correctAnswer?.answerValue);
+          
+          if (correctAnswer && correctAnswer.answerValue === userBoolAnswer) {
+            console.log('Correct boolean answer! Adding', grade, 'points');
+            totalScore += grade;
+          }
+          break;
+  
+        case 'text':
+          const userTextAnswer = (textAnswers[question.id] || '').trim().toLowerCase();
+          console.log('User text answer:', userTextAnswer);
+          
+          // Check if user's text matches any correct text answer
+          if (correctAnswers.some(a => 
+            a.answerValue.trim().toLowerCase() === userTextAnswer
+          )) {
+            console.log('Correct text answer! Adding', grade, 'points');
+            totalScore += grade;
+          }
+          break;
+  
+        case 'coding':
+          const userSqlAnswer = (sqlAnswers[question.id] || '').trim().toLowerCase();
+          console.log('User SQL answer:', userSqlAnswer);
+          
+          // Check if user's SQL matches the correct SQL answer
+          if (correctAnswers.some(a => 
+            a.answerValue.trim().toLowerCase() === userSqlAnswer
+          )) {
+            console.log('Correct SQL answer! Adding', grade, 'points');
+            totalScore += grade;
+          }
+          break;
+      }
+    });
+  
+    if (maxPossibleScore <= 0) {
+      console.error('Invalid maxScore calculated - setting to 1');
+      maxPossibleScore = 1;
+    }
+  
+    return {
+      score: totalScore,
+      maxScore: maxPossibleScore,
+      percentage: (maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0)
+    };
+  };
 
   const handleSubmit = async () => {
-    if (!userId) {
-      alert('Error: Unable to identify the user associated with this test link');
+    if (!userId || !test) {
+      alert('Error: Missing required data');
       return;
     }
-
+  
     try {
-      const allAnswers = test.questions.map(question => {
-        switch (question.questionType) {
+      // Validate answers
+      const unanswered = test.questions.filter(q => {
+        switch (q.questionType) {
           case 'mcq':
           case 'boolean':
+            return !answers[q.id];
+          case 'text':
+            return !textAnswers[q.id];
+          case 'coding':
+            return !sqlAnswers[q.id];
+          default:
+            return false;
+        }
+      });
+  
+      if (unanswered.length > 0) {
+        alert('Please answer all questions before submitting');
+        return;
+      }
+  
+      const gradeInfo = calculateGrade();
+      console.log('Grade calculation:', gradeInfo);
+  
+      const allAnswers = test.questions.map((question) => {
+        const base = { questionId: question.id };
+        
+        switch (question.questionType) {
+          case 'mcq':
             return {
-              questionId: question.id,
+              ...base,
               answerId: parseInt(answers[question.id])
+            };
+          case 'boolean':
+            // Find the answer ID that matches the user's selected value
+            const boolAnswer = question.answers.find(
+              a => a.answerValue === answers[question.id]
+            );
+            return {
+              ...base,
+              answerId: boolAnswer?.id
             };
           case 'text':
             return {
-              questionId: question.id,
-              answerText: textAnswers[question.id]
+              ...base,
+              answerText: textAnswers[question.id] || ''
             };
           case 'coding':
             return {
-              questionId: question.id,
-              sqlAnswer: sqlAnswers[question.id]
+              ...base,
+              sqlAnswer: sqlAnswers[question.id] || ''
             };
           default:
             return null;
         }
-      }).filter(answer => answer !== null);
-
-      await testService.submitTest({
-        testId: test.id,
-        userId: userId,
-        answers: allAnswers
-      });
-
-      alert('Test submitted successfully!');
-      navigate('/'); 
+      }).filter(Boolean);
+  
+      const submitData = {
+        testId: parseInt(test.id),
+        userId: parseInt(userId),
+        answers: allAnswers,
+        score: parseFloat(gradeInfo.score.toFixed(2)),
+        maxScore: parseFloat(gradeInfo.maxScore.toFixed(2))
+        // percentage field removed from submission data
+      };
+  
+      console.log('Submitting data:', submitData);
+      const response = await testService.submitTest(submitData);
+      console.log('Submission response:', response);
+  
+      // Calculate percentage on frontend for display purposes
+      const percentage = (gradeInfo.score / gradeInfo.maxScore) * 100;
+      
+      alert(`Test submitted successfully! Your score: ${percentage.toFixed(1)}%`);
+      navigate('/');
     } catch (error) {
       console.error('Error submitting test:', error);
-      alert('Error submitting test: ' + error.message);
+      const errorMessage = error.response?.data?.message || error.message;
+      alert('Error submitting test: ' + errorMessage);
     }
   };
-
+  
   if (loading) return <CircularProgress />;
   if (!test) return <Typography>Test not found</Typography>;
 

@@ -1,4 +1,0 @@
-pip install fastapi uvicorn python-multipart
-
-.\env\Scripts\activate
-

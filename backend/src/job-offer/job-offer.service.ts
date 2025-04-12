@@ -8,8 +8,29 @@ export class JobOfferService {
   constructor(private prisma: PrismaService) {}
 
   async create(createJobOfferDto: CreateJobOfferDto) {
+    const { offerSkills = [], ...jobOfferData } = createJobOfferDto;
+  
     return this.prisma.jobOffer.create({
-      data: createJobOfferDto,
+      data: {
+        ...jobOfferData,
+        offerSkills: {
+          create: await Promise.all(
+            offerSkills.map(async (offerSkill) => {
+              const skill = await this.prisma.skills.upsert({
+                where: { skillName: offerSkill.skill.skillName },
+                update: {},
+                create: { skillName: offerSkill.skill.skillName }
+              });
+              
+              return {
+                skill: {
+                  connect: { id: skill.id }
+                }
+              };
+            })
+          )
+        }
+      },
       include: {
         offerSkills: {
           include: {
@@ -33,15 +54,93 @@ export class JobOfferService {
   }
 
   async remove(id: number) {
-    return this.prisma.jobOffer.delete({
-      where: { id }
-    });
+    try {
+      // First delete all UserAnswers related to this job offer
+      await this.prisma.usersAnswers.deleteMany({
+        where: {
+          OR: [
+            { test: { jobOfferId: id } },
+            { answer: { question: { test: { jobOfferId: id } } } }
+          ]
+        }
+      });
+  
+      // Then proceed with the rest of the deletions as before
+      await this.prisma.answers.deleteMany({
+        where: {
+          question: {
+            test: {
+              jobOfferId: id
+            }
+          }
+        }
+      });
+  
+      await this.prisma.questions.deleteMany({
+        where: {
+          test: {
+            jobOfferId: id
+          }
+        }
+      });
+  
+      await this.prisma.tests.deleteMany({
+        where: {
+          jobOfferId: id
+        }
+      });
+  
+      await this.prisma.jobApplication.deleteMany({
+        where: {
+          jobOfferId: id
+        }
+      });
+  
+      await this.prisma.jobOfferSkills.deleteMany({
+        where: {
+          jobOfferId: id
+        }
+      });
+  
+      return await this.prisma.jobOffer.delete({
+        where: { id }
+      });
+    } catch (error) {
+      console.error('Error deleting job offer:', error);
+      throw new Error(`Failed to delete job offer: ${error.message}`);
+    }
   }
 
   async update(id: number, updateJobOfferDto: UpdateJobOfferDto) {
+    const { offerSkills = [], ...jobOfferData } = updateJobOfferDto;
+  
+    // First delete existing skill associations
+    await this.prisma.jobOfferSkills.deleteMany({
+      where: { jobOfferId: id }
+    });
+  
     return this.prisma.jobOffer.update({
       where: { id },
-      data: updateJobOfferDto,
+      data: {
+        ...jobOfferData,
+        offerSkills: {
+          create: await Promise.all(
+            offerSkills.map(async (offerSkill) => {
+              const skill = await this.prisma.skills.upsert({
+                where: { skillName: offerSkill.skill.skillName },
+                update: {},
+                create: { skillName: offerSkill.skill.skillName }
+              });
+              
+              return {
+                skill: {
+                  connect: { id: skill.id }
+                }
+              };
+            })
+          )
+        }
+      },
       include: {
         offerSkills: {
           include: {

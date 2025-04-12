@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import initSqlJs from 'sql.js';
 import { testService } from '../../services/testService';
 import { jobOfferService } from '../../services/jobOfferService';
 import { Box, TextField, Typography, Paper, Grid, Button, List, ListItem, IconButton, Radio, RadioGroup, FormControl, FormLabel, FormControlLabel, Checkbox, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, InputLabel, Select, MenuItem } from '@mui/material';
@@ -8,7 +7,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import { useLocation, useNavigate } from 'react-router-dom';
 import NavBar from '../navbar/NavBar';
-
 
 const QUESTION_TYPES = [
   {
@@ -19,7 +17,7 @@ const QUESTION_TYPES = [
       question: '',
       options: [],
       correctAnswers: [],
-      defaultGrade: 0
+      defaultGrade: 1
     }
   },
   {
@@ -29,7 +27,7 @@ const QUESTION_TYPES = [
       type: 'text',
       question: '',
       expectedAnswer: '',
-      defaultGrade: 0
+      defaultGrade: 1
     }
   },
   {
@@ -38,8 +36,8 @@ const QUESTION_TYPES = [
     template: {
       type: 'boolean',
       question: '',
-      correctAnswer: false,
-      defaultGrade: 0
+      correctAnswer: false, // Ensure default value
+      defaultGrade: 1
     }
   },
   {
@@ -48,42 +46,137 @@ const QUESTION_TYPES = [
     template: {
       type: 'coding',
       description: '',
-      defaultGrade: 0
+      defaultGrade: 1
     }
   }
 ];
 
-
-const CodeEditor = ({ questionId, onQueryChange }) => {
-  const [query, setQuery] = useState('');
+const CodeEditor = ({ questionId, onQueryChange, initialValue = '' }) => {
+  const [query, setQuery] = useState(initialValue);
   const [result, setResult] = useState('');
-  const [SQL, setSQL] = useState(null);
   const [db, setDb] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [sqlInitialized, setSqlInitialized] = useState(false);
 
   const handleQueryChange = (newQuery) => {
     setQuery(newQuery);
     onQueryChange(questionId, newQuery);
   };
-  
 
+  // Load SQL.js safely
   useEffect(() => {
-    async function initSQL() {
-      try {
-        const sqlJS = await initSqlJs({
+    // Create a script element to load SQL.js
+    const script = document.createElement('script');
+    script.src = 'https://sql.js.org/dist/sql-wasm.js';
+    script.async = true;
+    
+    script.onload = () => {
+      // Initialize SQL.js after the script is loaded
+      initializeSqlJs();
+    };
+    
+    document.body.appendChild(script);
+    
+    // Clean up
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const initializeDatabase = (db) => {
+    try {
+      // Create tables with sample data
+      db.run(`
+        -- Create employees table
+        CREATE TABLE employees (
+          id INTEGER PRIMARY KEY,
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          email TEXT,
+          hire_date TEXT,
+          department_id INTEGER,
+          salary REAL
+        );
+        
+        -- Insert sample employees
+        INSERT INTO employees VALUES (1, 'John', 'Smith', 'john.smith@example.com', '2020-01-15', 1, 75000);
+        INSERT INTO employees VALUES (2, 'Jane', 'Doe', 'jane.doe@example.com', '2019-05-20', 2, 82000);
+        INSERT INTO employees VALUES (3, 'Michael', 'Johnson', 'michael.j@example.com', '2021-03-10', 1, 67000);
+        INSERT INTO employees VALUES (4, 'Emily', 'Davis', 'emily.d@example.com', '2018-11-08', 3, 90000);
+        INSERT INTO employees VALUES (5, 'Robert', 'Wilson', 'r.wilson@example.com', '2022-01-05', 2, 72000);
+        
+        -- Create departments table
+        CREATE TABLE departments (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          location TEXT
+        );
+        
+        -- Insert sample departments
+        INSERT INTO departments VALUES (1, 'Engineering', 'Building A');
+        INSERT INTO departments VALUES (2, 'Marketing', 'Building B');
+        INSERT INTO departments VALUES (3, 'Finance', 'Building C');
+        
+        -- Create projects table
+        CREATE TABLE projects (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          start_date TEXT,
+          end_date TEXT,
+          budget REAL
+        );
+        
+        -- Insert sample projects
+        INSERT INTO projects VALUES (1, 'Website Redesign', '2023-01-10', '2023-06-30', 50000);
+        INSERT INTO projects VALUES (2, 'Mobile App Development', '2023-02-15', '2023-08-20', 75000);
+        INSERT INTO projects VALUES (3, 'Database Migration', '2023-03-01', '2023-05-15', 30000);
+        
+        -- Create employee_projects (junction table)
+        CREATE TABLE employee_projects (
+          employee_id INTEGER,
+          project_id INTEGER,
+          role TEXT,
+          hours_allocated INTEGER,
+          PRIMARY KEY (employee_id, project_id),
+          FOREIGN KEY (employee_id) REFERENCES employees (id),
+          FOREIGN KEY (project_id) REFERENCES projects (id)
+        );
+        
+        -- Insert sample employee-project relationships
+        INSERT INTO employee_projects VALUES (1, 1, 'Lead Developer', 120);
+        INSERT INTO employee_projects VALUES (2, 1, 'Designer', 80);
+        INSERT INTO employee_projects VALUES (3, 2, 'Developer', 160);
+        INSERT INTO employee_projects VALUES (4, 3, 'Project Manager', 100);
+        INSERT INTO employee_projects VALUES (5, 2, 'Tester', 60);
+        INSERT INTO employee_projects VALUES (1, 3, 'Developer', 90);
+      `);
+      
+      console.log('Database initialized with sample data');
+    } catch (err) {
+      console.error('Error initializing database:', err);
+    }
+  };
+  
+  const initializeSqlJs = async () => {
+    try {
+      if (window.initSqlJs) {
+        const SQL = await window.initSqlJs({
           locateFile: file => `https://sql.js.org/dist/${file}`
         });
         
-        setSQL(sqlJS);
-        const db = new sqlJS.Database();
-        setDb(db);
-      } catch (err) {
-        setError('Failed to init SQL.js: ' + err.message);
+        const database = new SQL.Database();
+        initializeDatabase(database); 
+        setDb(database);
+        setSqlInitialized(true);
+      } else {
+        setError('SQL.js not loaded properly');
       }
+    } catch (err) {
+      console.error('SQL.js initialization error:', err);
+      setError('Failed to initialize SQL.js: ' + err.message);
     }
-    initSQL();
-  }, []);
+  };
 
   const executeQuery = async () => {
     if (!db) {
@@ -132,10 +225,10 @@ const CodeEditor = ({ questionId, onQueryChange }) => {
       <Button 
         variant="contained"
         onClick={executeQuery}
-        disabled={isLoading || !db}
+        disabled={isLoading || !sqlInitialized}
         sx={{ mb: 2 }}
       >
-        {isLoading ? 'Running...' : 'Run'}
+        {isLoading ? 'Running...' : sqlInitialized ? 'Run' : 'Loading SQL...'}
       </Button>
       
       {error && (
@@ -232,6 +325,11 @@ const TestBuilder = () => {
     }
   }, [location]);
 
+  useEffect(() => {
+    // Calculate total grade whenever questions change
+    updateTotalGrade();
+  }, [questions]);
+
   const loadJobOffers = async () => {
     try {
       const offers = await jobOfferService.getAllJobOffers();
@@ -252,7 +350,8 @@ const TestBuilder = () => {
         let questionData = {
           id: `q-${index}`,
           type: q.questionType,
-          question: q.questionText
+          question: q.questionText,
+          defaultGrade: q.defaultGrade || 1
         };
 
         switch (q.questionType) {
@@ -270,12 +369,14 @@ const TestBuilder = () => {
               expectedAnswer: q.answers[0]?.answerValue || ''
             };
           case 'boolean':
+            // Fix: Properly handle boolean questions
+            const trueAnswer = q.answers.find(a => a.answerValue === 'true');
             return {
               ...questionData,
-              correctAnswer: q.answers[0]?.answerIsCorrect || false
+              correctAnswer: trueAnswer ? trueAnswer.answerIsCorrect : false,
             };
           case 'coding':
-            const sqlQuery = q.answers[1]?.answerValue || '';
+            const sqlQuery = q.answers[0]?.answerValue || '';
             setSqlQueries(prev => ({
               ...prev,
               [`q-${index}`]: sqlQuery
@@ -283,7 +384,7 @@ const TestBuilder = () => {
             return {
               ...questionData,
               type: 'coding',
-              description: q.answers[0]?.answerValue || ''
+              description: q.questionText || ''
             };
           default:
             return questionData;
@@ -315,8 +416,8 @@ const TestBuilder = () => {
       questions: questions.map(q => {
         let questionData = {
           type: q.type,
-          question: q.question || q.description,
-          defaultGrade: q.defaultGrade || 0  
+          question: q.question || q.description || '',
+          defaultGrade: parseFloat(q.defaultGrade) || 1
         };
   
         switch (q.type) {
@@ -331,27 +432,20 @@ const TestBuilder = () => {
           case 'text':
             return {
               ...questionData,
-              expectedAnswer: q.expectedAnswer
+              expectedAnswer: q.expectedAnswer || ''
             };
           case 'boolean':
             return {
               ...questionData,
-              correctAnswer: q.correctAnswer
+              correctAnswer: Boolean(q.correctAnswer) // Ensure boolean value
             };
           case 'coding':
-            const sqlQuery = sqlQueries[q.id];
-            if (!sqlQuery) {
-              throw new Error('SQL query is required for coding questions');
-            }
             return {
               ...questionData,
-              question: q.description,
-              answers: [
-                {
-                  answerValue: sqlQuery,
-                  answerIsCorrect: true
-                }
-              ]
+              answers: [{
+                answerValue: sqlQueries[q.id] || '',
+                answerIsCorrect: true
+              }]
             };
           default:
             return questionData;
@@ -360,37 +454,17 @@ const TestBuilder = () => {
     };
   
     try {
-      let response;
-      if (isEditMode) {
-        response = await testService.updateTest(editTestId, testData);
-      } else {
-        response = await testService.createTest(testData);
-      }
+      const response = isEditMode 
+        ? await testService.updateTest(editTestId, testData)
+        : await testService.createTest(testData);
   
-  
-      console.log(`Test ${isEditMode ? 'updated' : 'saved'} successfully:`, response);
-     {/*  if (selectedJobOffer?.id) {
-        await testService.generateTestLink(
-          response.id, 
-          selectedJobOffer.id, 
-          response.id.toString() 
-        );
-      }  */}
-      
-      setTestTitle('');
-      setTestDescription('');
-      setQuestions([]);
-      setSqlQueries({});
-      setSelectedJobOffer(null);
-  
-      alert(`Test ${isEditMode ? 'updated' : 'saved'} successfully!`);
-      navigate('/tests'); 
+      console.log(`Test ${isEditMode ? 'updated' : 'created'}:`, response);
+      navigate('/tests');
     } catch (error) {
       console.error('Error saving test:', error);
-      alert(`Error ${isEditMode ? 'updating' : 'saving'} test: ` + error.message);
+      alert(`Error ${isEditMode ? 'updating' : 'saving'} test: ` + error.response?.data?.message || error.message);
     }
   };
-
   
   const onDragEnd = (result) => {
     if (!result.destination) return;
@@ -444,7 +518,6 @@ const TestBuilder = () => {
         onChange={(e) => {
           const newGrade = parseFloat(e.target.value) || 0;
           updateQuestion(index, 'defaultGrade', newGrade);
-          updateTotalGrade();
         }}
         InputProps={{ inputProps: { min: 0, step: 0.5 } }}
         sx={{ mb: 2, width: '150px' }}
@@ -548,7 +621,8 @@ const TestBuilder = () => {
               <FormLabel component="legend">Correct Answer</FormLabel>
               <RadioGroup
                 row
-                value={question.correctAnswer.toString()}
+                // Fix for the toString() error - ensure we have a boolean value before conversion
+                value={String(!!question.correctAnswer)}
                 onChange={(e) => updateQuestion(index, 'correctAnswer', e.target.value === 'true')}
               >
                 <FormControlLabel value="true" control={<Radio />} label="True" />
@@ -585,7 +659,7 @@ const TestBuilder = () => {
   };
 
   const updateTotalGrade = () => {
-    const total = questions.reduce((sum, question) => sum + (question.defaultGrade || 0), 0);
+    const total = questions.reduce((sum, question) => sum + (parseFloat(question.defaultGrade) || 0), 0);
     setTotalGrade(total);
   };
   

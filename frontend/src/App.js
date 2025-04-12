@@ -9,6 +9,7 @@ import TestView from './components/test/TestView';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import TakeTest from './components/test/TakeTest';
 import CvList from './components/cv/CvList';
+import TestResults from './components/test/TestResults';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/take-test/:uuid/:cvId?" element={<TakeTest />} />
           <Route path="/cv-list" element={<CvList />} />
           <Route path="/job-offer/:offerId/cvs" element={<CvList />} />
+          <Route path="/tests/:id/results" element={<TestResults />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard/admin" element={

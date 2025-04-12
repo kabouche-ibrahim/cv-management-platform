@@ -17,7 +17,7 @@ export const testService = {
     console.log('Getting test by ID:', testId);
     const response = await axios.get(`${API_URL}/${testId}`); 
     return response.data;
-},
+  },
 
   async updateTest(id, testData) {
     const response = await axios.patch(`${API_URL}/${id}`, testData);
@@ -30,14 +30,33 @@ export const testService = {
   },
 
   async submitTest(submitData) {
-    const response = await axios.post(`${API_URL}/submit`, submitData);
-    return response.data;
+    try {
+      // Add validation
+      if (!submitData.testId || !submitData.userId || !submitData.answers) {
+        throw new Error('Missing required fields');
+      }
+  
+      // Log the data being sent
+      console.log('Submitting test data:', JSON.stringify(submitData, null, 2));
+  
+      const response = await axios.post(`${API_URL}/submit`, submitData);
+      return response.data;
+    } catch (error) {
+      console.error('Submit test error:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
   },
 
+  
   async getTestByLink(testLink) {
     console.log('Requesting test with link:', testLink);
-    const response = await axios.get(`${API_URL}/take/${testLink}`);
-    return response.data;
+    try {
+      const response = await axios.get(`${API_URL}/take/${testLink}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting test by link:', error);
+      throw error;
+    }
   },
 
   async generateTestLink(testId, jobOfferId, cvId) {
@@ -47,5 +66,16 @@ export const testService = {
     });
     console.log('Generated link response:', response.data); // Debug log
     return response.data;
+  },
+  
+  async getTestResults(testId) {
+    try {
+      const response = await axios.get(`${API_URL}/${testId}/results`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error getting results for test ${testId}:`, error);
+      return []; // Return empty array instead of throwing
+    }
   }
+
 };

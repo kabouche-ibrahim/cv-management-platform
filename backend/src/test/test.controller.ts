@@ -18,15 +18,24 @@ export class TestController {
     return this.testService.findAll();
   }
 
+  @Get(':id/results')
+  async getTestResults(@Param('id') id: string) {
+    const testId = parseInt(id, 10);
+    if (isNaN(testId)) {
+      throw new NotFoundException('Invalid test ID');
+  }
+  return this.testService.getTestResults(testId);
+}
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.testService.findOne(+id);
   }
 
-  @Patch(':id')
+  /*@Patch(':id')
   async update(@Param('id') id: string, @Body() updateTestDto: UpdateTestDto) {
     return this.testService.update(+id, updateTestDto);
-  }
+  }*/
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
