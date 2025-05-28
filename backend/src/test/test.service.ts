@@ -245,27 +245,13 @@ export class TestService {
   async submitTest(submitTestDto: SubmitTestDto) {
     const { testId, userId, answers, score, maxScore } = submitTestDto;
     
-    // Updated validation - removed percentage check
     if (!testId || !userId || !answers || answers.length === 0) {
       throw new Error('Missing required fields');
     }
-  
-    if (maxScore <= 0) {
-      throw new Error('Invalid submission data: Max score must be greater than zero');
-    }
-  
+
     try {
-      // First check if user and test exist
-      const [user, test] = await Promise.all([
-        this.prisma.user.findUnique({ where: { id: userId } }),
-        this.prisma.tests.findUnique({ where: { id: testId } })
-      ]);
-  
-      if (!user) throw new Error('User not found');
-      if (!test) throw new Error('Test not found');
-  
       return await this.prisma.$transaction(async (prisma) => {
-        // Create submission record - removed percentage field
+        // Create test submission
         const submission = await prisma.testSubmission.create({
           data: {
             testId,
@@ -275,8 +261,8 @@ export class TestService {
             submittedAt: new Date()
           }
         });
-  
-        // Create answer records
+
+        // Handle all answer types
         const submittedAnswers = await Promise.all(
           answers.map(async (answer) => {
             const answerData = {
@@ -285,24 +271,43 @@ export class TestService {
               userQuestionId: answer.questionId,
               submissionId: submission.id
             };
-  
-            if (answer.answerId) {
+
+            // Handle text answers
+            if (answer.answerText !== undefined) {
+              const newAnswer = await prisma.answers.create({
+                data: {
+                  questionId: answer.questionId,
+                  answerValue: answer.answerText,
+                  answerIsCorrect: false // Text answers correctness is determined by semantic similarity
+                }
+              });
+              return prisma.usersAnswers.create({
+                data: {
+                  ...answerData,
+                  answerId: newAnswer.id
+                }
+              });
+            }
+            
+            // Handle MCQ/Boolean answers
+            if (answer.answerId !== undefined) {
               return prisma.usersAnswers.create({
                 data: {
                   ...answerData,
                   answerId: answer.answerId
                 }
               });
-            } else {
-              const answerValue = answer.answerText || answer.sqlAnswer || '';
+            }
+
+            // Handle SQL/coding answers
+            if (answer.sqlAnswer !== undefined) {
               const newAnswer = await prisma.answers.create({
                 data: {
                   questionId: answer.questionId,
-                  answerValue,
-                  answerIsCorrect: false
+                  answerValue: answer.sqlAnswer,
+                  answerIsCorrect: false // SQL answers correctness is determined by exact match
                 }
               });
-  
               return prisma.usersAnswers.create({
                 data: {
                   ...answerData,
@@ -312,14 +317,19 @@ export class TestService {
             }
           })
         );
-  
-        return { submission, answers: submittedAnswers };
+
+        // Return both submission and answers
+        return {
+          submission,
+          answers: submittedAnswers.filter(Boolean) // Remove any undefined answers
+        };
       });
     } catch (error) {
       console.error('Error submitting test:', error);
       throw new Error(`Failed to submit test: ${error.message}`);
     }
   }
+
 
   async getTestResults(testId: number) {
     if (!testId) {

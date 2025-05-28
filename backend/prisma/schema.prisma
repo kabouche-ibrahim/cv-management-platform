@@ -25,29 +25,32 @@ model User {
   role        String
   createdAt   DateTime       @default(now())
   updatedAt   DateTime?       @updatedAt
-  userSkills  UserSkills[]
+  /*userSkills  UserSkills[]*/
   applications JobApplication[]
   answers     UsersAnswers[]
   testSubmissions TestSubmission[]
   cvUrl       String?
   cvId        String?
+  cvhash      String?
   lastUploadDate DateTime?
 }
 
 model Skills {
   id          Int             @id @default(autoincrement()) @map("SkillId")
   skillName   String          @unique
-  userSkills  UserSkills[]
+  /*userSkills  UserSkills[]*/
   offerSkills JobOfferSkills[]
 }
 
-model UserSkills {
+
+
+/*model UserSkills {
   id        Int     @id @default(autoincrement()) @map("UserSkillId")
   userId    Int
   skillId   Int
   user      User    @relation(fields: [userId], references: [id])
   skill     Skills  @relation(fields: [skillId], references: [id])
-}
+}*/
 
 model JobOffer {
   id             Int              @id @default(autoincrement()) @map("JobOfferId")

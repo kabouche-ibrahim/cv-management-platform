@@ -2,11 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { testService } from '../../services/testService';
 import { jobOfferService } from '../../services/jobOfferService';
-import { Box, TextField, Typography, Paper, Grid, Button, List, ListItem, IconButton, Radio, RadioGroup, FormControl, FormLabel, FormControlLabel, Checkbox, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, TextField, Typography, Paper, Grid, Button, List, Container, ListItem, IconButton, Radio, RadioGroup, FormControl, FormLabel, FormControlLabel, Checkbox, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, InputLabel, Select, MenuItem } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import { useLocation, useNavigate } from 'react-router-dom';
 import NavBar from '../navbar/NavBar';
+import { styled } from '@mui/material/styles';
+
+const SidebarPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  background: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: theme.shadows[3],
+}));
+
+const MainPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  background: theme.palette.background.default,
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: theme.shadows[4],
+}));
+
+const QuestionCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  marginBottom: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: theme.shadows[2],
+  transition: 'box-shadow 0.2s, transform 0.2s',
+  '&:hover': {
+    boxShadow: theme.shadows[6],
+    transform: 'translateY(-2px) scale(1.01)',
+  },
+}));
+
+const DragTypePaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  width: '100%',
+  background: theme.palette.grey[100],
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[1],
+  fontWeight: 500,
+  textAlign: 'center',
+  cursor: 'grab',
+  transition: 'background 0.2s',
+  '&:hover': {
+    background: theme.palette.primary.light,
+    color: theme.palette.primary.contrastText,
+  },
+}));
 
 const QUESTION_TYPES = [
   {
@@ -665,114 +708,168 @@ const TestBuilder = () => {
   
 
   return (
-    <>
-    <NavBar/>
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Box sx={{ p: 4, mt: 8 }}>
-        <Grid container spacing={5}>
-          <Grid item xs={3}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6">Question Types</Typography>
-              <Droppable droppableId="questionTypes" isDropDisabled>
-                {(provided) => (
-                  <List {...provided.droppableProps} ref={provided.innerRef}>
-                    {QUESTION_TYPES.map((type, index) => (
-                      <Draggable key={type.id} draggableId={type.id} index={index}>
-                        {(provided) => (
-                          <ListItem ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
-                            <Paper sx={{ p: 2, width: '100%' }}>{type.type}</Paper>
-                          </ListItem>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </List>
-                )}
-              </Droppable>
-            </Paper>
-          </Grid>
+  <>
+    <NavBar />
+    <Box sx={{ background: '#f5f5f5', minHeight: '100vh', pt: 12, pb: 4 }}>
+      <Container maxWidth="xl">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Grid container spacing={4}>
+            {/* Sidebar */}
+            <Grid item xs={12} md={3}>
+              <SidebarPaper>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                  Question Types
+                </Typography>
+                <Droppable droppableId="questionTypes" isDropDisabled>
+                  {(provided) => (
+                    <List {...provided.droppableProps} ref={provided.innerRef}>
+                      {QUESTION_TYPES.map((type, index) => (
+                        <Draggable key={type.id} draggableId={type.id} index={index}>
+                          {(provided) => (
+                            <ListItem
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              sx={{ mb: 2, p: 0 }}
+                            >
+                              <DragTypePaper>{type.type}</DragTypePaper>
+                            </ListItem>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </List>
+                  )}
+                </Droppable>
+              </SidebarPaper>
+            </Grid>
 
-          <Grid item xs={9}>
-            <Paper sx={{ p: 3 }}>
-              <TextField 
-                fullWidth 
-                label="Test Title" 
-                value={testTitle} 
-                onChange={(e) => setTestTitle(e.target.value)} 
-                sx={{ mb: 3 }} 
-              />
+            {/* Main Content */}
+            <Grid item xs={12} md={9}>
+              <MainPaper>
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, color: 'primary.main' }}>
+                  {isEditMode ? 'Edit Test' : 'Create New Test'}
+                </Typography>
+                <Typography variant="subtitle1" sx={{ mb: 3, color: 'text.secondary' }}>
+                  Build your test by dragging question types and customizing each question.
+                </Typography>
 
-              <TextField 
-                  fullWidth 
-                  label="Test Description" 
-                  multiline
-                  rows={3}
-                  value={testDescription} 
-                  onChange={(e) => setTestDescription(e.target.value)} 
-                  sx={{ mb: 3 }} 
+                <TextField
+                  fullWidth
+                  label="Test Title"
+                  value={testTitle}
+                  onChange={(e) => setTestTitle(e.target.value)}
+                  sx={{ mb: 2 }}
+                  InputProps={{ sx: { borderRadius: 2 } }}
                 />
 
-              <Box sx={{ mb: 3, mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="h6">
-                  Total Grade: {totalGrade}
-                </Typography>
-              </Box>
-              
-              {/* Add job offer selection */}
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Link to Job Offer</InputLabel>
-                <Select
-                  value={selectedJobOffer?.id || ''}
-                  onChange={(e) => setSelectedJobOffer(jobOffers.find(o => o.id === e.target.value))}
+                <TextField
+                  fullWidth
+                  label="Test Description"
+                  multiline
+                  rows={3}
+                  value={testDescription}
+                  onChange={(e) => setTestDescription(e.target.value)}
+                  sx={{ mb: 3 }}
+                  InputProps={{ sx: { borderRadius: 2 } }}
+                />
+
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Total Grade: <span style={{ color: '#1976d2' }}>{totalGrade}</span>
+                  </Typography>
+                  <FormControl sx={{ minWidth: 220 }}>
+                    <InputLabel>Link to Job Offer</InputLabel>
+                    <Select
+                      value={selectedJobOffer?.id || ''}
+                      onChange={(e) => setSelectedJobOffer(jobOffers.find(o => o.id === e.target.value))}
+                      label="Link to Job Offer"
+                      sx={{ borderRadius: 2 }}
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      {jobOffers.map((offer) => (
+                        <MenuItem key={offer.id} value={offer.id}>
+                          {offer.jobName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Droppable droppableId="testForm">
+                  {(provided) => (
+                    <Box
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      sx={{
+                        minHeight: 400,
+                        background: '#fafbfc',
+                        border: '1px dashed #e0e0e0',
+                        borderRadius: 3,
+                        p: 2,
+                        mb: 3,
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      {questions.length === 0 && (
+                        <Typography
+                          variant="body1"
+                          color="text.secondary"
+                          sx={{ textAlign: 'center', mt: 8, mb: 8 }}
+                        >
+                          Drag question types here to start building your test.
+                        </Typography>
+                      )}
+                      {questions.map((question, index) => (
+                        <Draggable key={question.id} draggableId={question.id} index={index}>
+                          {(provided) => (
+                            <QuestionCard
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                            >
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                  {question.type.charAt(0).toUpperCase() + question.type.slice(1)} Question
+                                </Typography>
+                                <IconButton onClick={() => removeQuestion(index)} color="error">
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                              {renderQuestionContent(question, index)}
+                            </QuestionCard>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </Box>
+                  )}
+                </Droppable>
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSaveTest}
+                  sx={{
+                    mt: 2,
+                    px: 5,
+                    py: 1.5,
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    boxShadow: 2,
+                  }}
+                  size="large"
                 >
-                  <MenuItem value="">None</MenuItem>
-                  {jobOffers.map((offer) => (
-                    <MenuItem key={offer.id} value={offer.id}>
-                      {offer.jobName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Droppable droppableId="testForm">
-                {(provided) => (
-                  <Box {...provided.droppableProps} ref={provided.innerRef} sx={{ minHeight: 400 }}>
-                    {questions.map((question, index) => (
-                      <Draggable key={question.id} draggableId={question.id} index={index}>
-                        {(provided) => (
-                          <Paper ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} sx={{ p: 2, mb: 2 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                              <Typography variant="subtitle1">{question.type} Question</Typography>
-                              <IconButton onClick={() => removeQuestion(index)} color="error">
-                                <DeleteIcon />
-                              </IconButton>
-                            </Box>
-                            {renderQuestionContent(question, index)}
-                          </Paper>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </Box>
-                )}
-              </Droppable>
-
-              {/* Add save button */}
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleSaveTest}
-                sx={{ mt: 2 }}
-              >
-                {isEditMode ? 'Update Test' : 'Save Test'}
-            </Button>
-            </Paper>
+                  {isEditMode ? 'Update Test' : 'Save Test'}
+                </Button>
+              </MainPaper>
+            </Grid>
           </Grid>
-        </Grid>
-      </Box>
-    </DragDropContext>
-    </>
-  );
+        </DragDropContext>
+      </Container>
+    </Box>
+  </>
+);
 };
 
 export default TestBuilder;
